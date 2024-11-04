@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simple Video Editor</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background-color: #1a1a1a;
+            color: #ffffff;
+        }
+
+        .video-container {
+            background-color: #2d2d2d;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+
+        #videoElement {
+            width: 100%;
+            max-width: 800px;
+            margin: 0 auto;
+            display: block;
+            border-radius: 4px;
+        }
+
+        .controls {
+            margin-top: 20px;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 10px 20px;
+            border: none;
+            border-radius: 4px;
+            background-color: #404040;
+            color: #ffffff;
+            cursor: pointer;
+            transition: all 0.3s;
+            border: 1px solid #555555;
+        }
+
+        button:hover {
+            background-color: #505050;
+            transform: translateY(-1px);
+        }
+
+        #timelineContainer {
+            width: 100%;
+            margin: 20px 0;
+        }
+
+        #timeline {
+            width: 100%;
+            height: 20px;
+            background: #404040;
+            border-radius: 4px;
+            cursor: pointer;
+            accent-color: #666666;
+        }
+
+        .file-input {
+            margin: 20px 0;
+            text-align: center;
+        }
+
+        input[type="file"] {
+            background-color: #404040;
+            color: #ffffff;
+            padding: 10px;
+            border-radius: 4px;
+            border: 1px solid #555555;
+        }
+
+        input[type="file"]::-webkit-file-upload-button {
+            background-color: #505050;
+            color: #ffffff;
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+        }
+
+        input[type="file"]::-webkit-file-upload-button:hover {
+            background-color: #606060;
+        }
+
+        .frame-controls {
+            margin: 15px 0;
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .frame-display {
+            background-color: #404040;
+            padding: 5px 10px;
+            border-radius: 4px;
+            border: 1px solid #555555;
+        }
+
+        .comments-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #363636;
+            border-radius: 4px;
+        }
+
+        .comment-input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background-color: #404040;
+            border: 1px solid #555555;
+            border-radius: 4px;
+            color: #ffffff;
+            resize: vertical;
+        }
+
+        .comments-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin-top: 10px;
+        }
+
+        .comment-item {
+            background-color: #404040;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            display: flex;
+            justify-content: space-between;
+        }
+
+        .timestamp {
+            color: #888888;
+            font-size: 0.9em;
+        }
+
+        .all-comments-section {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: #363636;
+            border-radius: 4px;
+        }
+
+        .comment-list-item {
+            background-color: #404040;
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .comment-list-item:hover {
+            background-color: #505050;
+        }
+
+        .comment-header {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            color: #888888;
+            font-size: 0.9em;
+        }
+
+        .comment-text {
+            color: #ffffff;
+        }
+    </style>
+</head>
+<body>
+    <div class="video-container">
+        <h1>Simple Video Editor</h1>
+        
+        <div class="file-input">
+            <input type="file" id="videoInput" accept="video/*">
+        </div>
+
+        <video id="videoElement" controls>
+            Your browser does not support the video element.
+        </video>
+
+        <div id="timelineContainer">
+            <input type="range" id="timeline" min="0" value="0">
+        </div>
+
+        <div class="controls">
+            <button onclick="playPause()">Play/Pause</button>
+            <button onclick="skipBackward()">-10s</button>
+            <button onclick="skipForward()">+10s</button>
+            <button onclick="changePlaybackSpeed()">Speed: 1x</button>
+        </div>
+
+        <div class="frame-controls">
+            <button onclick="previousFrame()">Previous Frame</button>
+            <div class="frame-display">Frame: <span id="frameNumber">0</span></div>
+            <button onclick="nextFrame()">Next Frame</button>
+        </div>
+
+        <div class="comments-section">
+            <h3>Frame Comments</h3>
+            <textarea class="comment-input" id="commentInput" placeholder="Add a comment for this frame..."></textarea>
+            <button onclick="addComment()">Add Comment</button>
+            <div class="comments-list" id="commentsList"></div>
+        </div>
+
+        <div class="all-comments-section">
+            <h3>All Comments</h3>
+            <div id="allCommentsList"></div>
+        </div>
+    </div>
+
+    <script>
+        const video = document.getElementById('videoElement');
+        const timeline = document.getElementById('timeline');
+        const videoInput = document.getElementById('videoInput');
+        let playbackSpeed = 1;
+
+        // Handle file input
+        videoInput.addEventListener('change', function(e) {
+            const file = e.target.files[0];
+            const videoURL = URL.createObjectURL(file);
+            video.src = videoURL;
+        });
+
+        // Play/Pause function
+        function playPause() {
+            if (video.paused) {
+                video.play();
+            } else {
+                video.pause();
+            }
+        }
+
+        // Skip backward 10 seconds
+        function skipBackward() {
+            video.currentTime = Math.max(video.currentTime - 10, 0);
+        }
+
+        // Skip forward 10 seconds
+        function skipForward() {
+            video.currentTime = Math.min(video.currentTime + 10, video.duration);
+        }
+
+        // Change playback speed
+        function changePlaybackSpeed() {
+            const speeds = [0.5, 1, 1.5, 2];
+            const currentIndex = speeds.indexOf(playbackSpeed);
+            playbackSpeed = speeds[(currentIndex + 1) % speeds.length];
+            video.playbackRate = playbackSpeed;
+            document.querySelector('button:last-child').textContent = `Speed: ${playbackSpeed}x`;
+        }
+
+        // Update timeline when video is loaded
+        video.addEventListener('loadedmetadata', function() {
+            timeline.max = Math.floor(video.duration);
+        });
+
+        // Update timeline during playback
+        video.addEventListener('timeupdate', function() {
+            timeline.value = Math.floor(video.currentTime);
+        });
+
+        // Seek video when timeline is changed
+        timeline.addEventListener('change', function() {
+            video.currentTime = timeline.value;
+        });
+
+        // Add these new variables
+        const frameNumber = document.getElementById('frameNumber');
+        const commentInput = document.getElementById('commentInput');
+        const commentsList = document.getElementById('commentsList');
+        const frameRate = 30; // Assuming 30fps, adjust as needed
+        const frameTime = 1 / frameRate;
+        const comments = new Map(); // Store comments by timestamp
+
+        // Frame control functions
+        function previousFrame() {
+            video.pause();
+            video.currentTime = Math.max(video.currentTime - frameTime, 0);
+            updateFrameNumber();
+            loadCommentsForCurrentTime();
+        }
+
+        function nextFrame() {
+            video.pause();
+            video.currentTime = Math.min(video.currentTime + frameTime, video.duration);
+            updateFrameNumber();
+            loadCommentsForCurrentTime();
+        }
+
+        function updateFrameNumber() {
+            const currentFrame = Math.floor(video.currentTime * frameRate);
+            frameNumber.textContent = currentFrame;
+        }
+
+        // Comment system functions
+        function addComment() {
+            const comment = commentInput.value.trim();
+            if (!comment) return;
+
+            const timestamp = video.currentTime;
+            const frameNum = Math.floor(timestamp * frameRate);
+            
+            if (!comments.has(timestamp)) {
+                comments.set(timestamp, []);
+            }
+            
+            comments.get(timestamp).push({
+                text: comment,
+                frame: frameNum,
+                timestamp: timestamp
+            });
+
+            commentInput.value = '';
+            loadCommentsForCurrentTime();
+            updateAllCommentsList();
+        }
+
+        function loadCommentsForCurrentTime() {
+            commentsList.innerHTML = '';
+            const currentTime = video.currentTime;
+            
+            comments.forEach((commentArray, time) => {
+                // Show comments within 1 frame of current time
+                if (Math.abs(time - currentTime) <= frameTime) {
+                    commentArray.forEach(comment => {
+                        const commentElement = document.createElement('div');
+                        commentElement.className = 'comment-item';
+                        commentElement.innerHTML = `
+                            <div>${comment.text}</div>
+                            <div class="timestamp">Frame: ${comment.frame}</div>
+                        `;
+                        commentsList.appendChild(commentElement);
+                    });
+                }
+            });
+        }
+
+        // Add these event listeners
+        video.addEventListener('timeupdate', function() {
+            updateFrameNumber();
+            loadCommentsForCurrentTime();
+        });
+
+        // Modify the existing timeline change handler
+        timeline.addEventListener('change', function() {
+            video.currentTime = timeline.value;
+            updateFrameNumber();
+            loadCommentsForCurrentTime();
+        });
+
+        const allCommentsList = document.getElementById('allCommentsList');
+
+        function updateAllCommentsList() {
+            allCommentsList.innerHTML = '';
+            
+            // Convert Map to array and sort by frame number
+            const sortedComments = Array.from(comments.entries())
+                .flatMap(([timestamp, commentArray]) => 
+                    commentArray.map(comment => ({
+                        ...comment,
+                        timestamp
+                    }))
+                )
+                .sort((a, b) => a.frame - b.frame);
+
+            sortedComments.forEach(comment => {
+                const commentElement = document.createElement('div');
+                commentElement.className = 'comment-list-item';
+                commentElement.innerHTML = `
+                    <div class="comment-header">
+                        <span>Frame: ${comment.frame}</span>
+                        <span>Time: ${comment.timestamp.toFixed(2)}s</span>
+                    </div>
+                    <div class="comment-text">${comment.text}</div>
+                `;
+                
+                commentElement.addEventListener('click', () => {
+                    video.currentTime = comment.timestamp;
+                    video.pause();
+                    updateFrameNumber();
+                    loadCommentsForCurrentTime();
+                });
+                
+                allCommentsList.appendChild(commentElement);
+            });
+        }
+    </script>
+</body>
+</html> 
